@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.moovclone.app.data.WorkoutMode
 import com.moovclone.app.data.HeartRateZone
 import com.moovclone.app.data.getHeartRateZone
+import com.moovclone.app.manager.AccelerometerAnalyzer
 import com.moovclone.app.manager.AudioCoachManager
 import com.moovclone.app.manager.BluetoothManagerImpl
 import com.moovclone.app.manager.CoachingEngine
@@ -51,8 +52,14 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     private val audioCoachManager = AudioCoachManager(application)
     private val bluetoothManager = BluetoothManagerImpl(application)
     private val sensorManager = StepSensorManager(application)
+    private val accelerometerAnalyzer = AccelerometerAnalyzer(application)
     private val coachingEngine = CoachingEngine()
     val musicManager = MusicManager(application)
+
+    val punchDetected = accelerometerAnalyzer.punchDetected
+    val repDetected = accelerometerAnalyzer.repDetected
+    val strokeDetected = accelerometerAnalyzer.strokeDetected
+    val movementMagnitude = accelerometerAnalyzer.movementMagnitude
 
     private val _workoutState = MutableStateFlow(WorkoutState())
     val workoutState: StateFlow<WorkoutState> = _workoutState.asStateFlow()
@@ -96,12 +103,43 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
                 _workoutState.value = _workoutState.value.copy(isConnected = device != null)
             }
         }
+        viewModelScope.launch {
+            accelerometerAnalyzer.punchDetected.collect { detected ->
+                if (detected && _workoutState.value.mode == WorkoutMode.CARDIO_BOXING) {
+                    val newCount = _workoutState.value.punchCount + 1
+                    _workoutState.value = _workoutState.value.copy(punchCount = newCount)
+                    if (newCount % 10 == 0) {
+                        audioCoachManager.speak("${newCount} Schläge!")
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
+            accelerometerAnalyzer.repDetected.collect { detected ->
+                if (detected && _workoutState.value.mode == WorkoutMode.BODYWEIGHT) {
+                    val newCount = _workoutState.value.repCount + 1
+                    _workoutState.value = _workoutState.value.copy(repCount = newCount)
+                    if (newCount % 10 == 0) {
+                        audioCoachManager.speak("${newCount} Wiederholungen!")
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
+            accelerometerAnalyzer.strokeDetected.collect { detected ->
+                if (detected && _workoutState.value.mode == WorkoutMode.SWIMMING) {
+                    val newCount = _workoutState.value.strokeCount + 1
+                    _workoutState.value = _workoutState.value.copy(strokeCount = newCount)
+                }
+            }
+        }
     }
 
     fun startWorkout() {
         _workoutState.value = _workoutState.value.copy(isRunning = true)
         sensorManager.startListening()
         sensorManager.reset()
+        accelerometerAnalyzer.startListening()
 
         workoutTimer = timer(initialDelay = 0, period = 1000) {
             _workoutState.value = _workoutState.value.copy(
@@ -124,6 +162,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         workoutTimer?.cancel()
         feedbackTimer?.cancel()
         sensorManager.stopListening()
+        accelerometerAnalyzer.stopListening()
         audioCoachManager.speak("Workout completed. Great job!")
     }
 
@@ -132,6 +171,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         workoutTimer?.cancel()
         feedbackTimer?.cancel()
         sensorManager.stopListening()
+        accelerometerAnalyzer.stopListening()
     }
 
     fun resumeWorkout() {
@@ -291,6 +331,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     override fun onCleared() {
         super.onCleared()
         sensorManager.stopListening()
+        accelerometerAnalyzer.stopListening()
         audioCoachManager.release()
         musicManager.release()
         workoutTimer?.cancel()
