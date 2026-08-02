@@ -22,7 +22,9 @@ data class WorkoutState(
     val calories: Float = 0f,
     val heartRate: Int = 0,
     val isPlayingMusic: Boolean = false,
-    val musicVolume: Float = 0.5f
+    val musicVolume: Float = 0.5f,
+    val isConnected: Boolean = false,
+    val form: String = "neutral"
 )
 
 class WorkoutViewModel(application: Application) : AndroidViewModel(application) {
@@ -60,6 +62,16 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             sensorManager.cadence.collect { cad ->
                 _workoutState.value = _workoutState.value.copy(cadence = cad)
+            }
+        }
+        viewModelScope.launch {
+            bluetoothManager.heartRate.collect { hr ->
+                _workoutState.value = _workoutState.value.copy(heartRate = hr)
+            }
+        }
+        viewModelScope.launch {
+            bluetoothManager.connectedDevice.collect { device ->
+                _workoutState.value = _workoutState.value.copy(isConnected = device != null)
             }
         }
     }

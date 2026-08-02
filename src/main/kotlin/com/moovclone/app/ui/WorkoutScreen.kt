@@ -172,8 +172,27 @@ fun WorkoutScreen(viewModel: WorkoutViewModel) {
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
+                    label = "HR",
+                    value = workoutState.heartRate.toString(),
+                    unit = "bpm",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MetricCard(
                     label = "Calories",
                     value = String.format("%.0f", workoutState.calories),
+                    modifier = Modifier.weight(1f)
+                )
+                MetricCard(
+                    label = "Form",
+                    value = workoutState.form.uppercase(),
                     modifier = Modifier.weight(1f)
                 )
             }
