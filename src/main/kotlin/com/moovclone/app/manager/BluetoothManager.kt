@@ -66,10 +66,20 @@ class BluetoothManagerImpl(private val context: Context) {
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 gatt?.services?.forEach { service ->
+                    // Log discovered service for debugging
+                    android.util.Log.d("BluetoothGatt", "Service: ${service.uuid}")
+
                     service.characteristics.forEach { characteristic ->
-                        if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
+                        android.util.Log.d("BluetoothGatt", "  Characteristic: ${characteristic.uuid}")
+
+                        // Enable notifications for all readable/notifiable characteristics
+                        if ((characteristic.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0 ||
+                            (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0) {
                             enableNotifications(gatt, characteristic)
-                        } else if (characteristic.uuid == MOOV_DATA_UUID) {
+                        }
+
+                        // Specifically handle Heart Rate
+                        if (characteristic.uuid == HEART_RATE_MEASUREMENT_UUID) {
                             enableNotifications(gatt, characteristic)
                         }
                     }
