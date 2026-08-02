@@ -9,6 +9,7 @@ import com.moovclone.app.data.getHeartRateZone
 import com.moovclone.app.manager.AudioCoachManager
 import com.moovclone.app.manager.BluetoothManagerImpl
 import com.moovclone.app.manager.CoachingEngine
+import com.moovclone.app.manager.MusicManager
 import com.moovclone.app.manager.StepSensorManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     private val bluetoothManager = BluetoothManagerImpl(application)
     private val sensorManager = StepSensorManager(application)
     private val coachingEngine = CoachingEngine()
+    val musicManager = MusicManager(application)
 
     private val _workoutState = MutableStateFlow(WorkoutState())
     val workoutState: StateFlow<WorkoutState> = _workoutState.asStateFlow()
@@ -290,6 +292,7 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
         super.onCleared()
         sensorManager.stopListening()
         audioCoachManager.release()
+        musicManager.release()
         workoutTimer?.cancel()
         feedbackTimer?.cancel()
     }
