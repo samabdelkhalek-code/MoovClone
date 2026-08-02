@@ -3,8 +3,12 @@ package com.moovclone.app.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.moovclone.app.data.WorkoutMode
+import com.moovclone.app.data.HeartRateZone
+import com.moovclone.app.data.getHeartRateZone
 import com.moovclone.app.manager.AudioCoachManager
 import com.moovclone.app.manager.BluetoothManagerImpl
+import com.moovclone.app.manager.CoachingEngine
 import com.moovclone.app.manager.StepSensorManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +18,7 @@ import java.util.Timer
 import kotlin.concurrent.timer
 
 data class WorkoutState(
+    val mode: WorkoutMode = WorkoutMode.RUNNING,
     val isRunning: Boolean = false,
     val elapsedTime: Long = 0,
     val stepCount: Int = 0,
@@ -24,13 +29,28 @@ data class WorkoutState(
     val isPlayingMusic: Boolean = false,
     val musicVolume: Float = 0.5f,
     val isConnected: Boolean = false,
-    val form: String = "neutral"
+    val form: String = "neutral",
+    // Mode-specific
+    val currentZone: HeartRateZone = HeartRateZone.ZONE_1,
+    val strokeCount: Int = 0,
+    val poolLength: Float = 50f,
+    val swimDistance: Float = 0f,
+    val repCount: Int = 0,
+    val setCount: Int = 0,
+    val exerciseName: String = "Push-ups",
+    val restTime: Long = 0,
+    val rpm: Float = 0f,
+    val power: Float = 0f,
+    val punchCount: Int = 0,
+    val comboCount: Int = 0,
+    val roundNumber: Int = 1,
 )
 
 class WorkoutViewModel(application: Application) : AndroidViewModel(application) {
     private val audioCoachManager = AudioCoachManager(application)
     private val bluetoothManager = BluetoothManagerImpl(application)
     private val sensorManager = StepSensorManager(application)
+    private val coachingEngine = CoachingEngine()
 
     private val _workoutState = MutableStateFlow(WorkoutState())
     val workoutState: StateFlow<WorkoutState> = _workoutState.asStateFlow()
@@ -165,13 +185,105 @@ class WorkoutViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun generateFeedback(): String {
-        return when {
-            _workoutState.value.cadence < 160 -> "Cadence is low. Try to increase your pace."
-            _workoutState.value.cadence > 180 -> "Perfect cadence! Keep it up."
-            _workoutState.value.stepCount > 5000 -> "You are doing great! More than 5000 steps."
-            _workoutState.value.stepCount > 2000 -> "Good progress! Keep running."
-            else -> "Keep going! You are doing well."
+        val state = _workoutState.value
+        val zone = getHeartRateZone(state.heartRate)
+        _workoutState.value = _workoutState.value.copy(currentZone = zone)
+
+        return when (state.mode) {
+            WorkoutMode.RUNNING -> {
+                coachingEngine.generateRunningFeedback(
+                    state.stepCount,
+                    state.cadence,
+                    state.heartRate,
+                    state.elapsedTime
+                ) ?: coachingEngine.getMotivationalPhrase()
+            }
+            WorkoutMode.WALKING -> {
+                coachingEngine.generateRunningFeedback(
+                    state.stepCount,
+                    state.cadence * 0.8f,
+                    state.heartRate,
+                    state.elapsedTime
+                ) ?: "Gutes Gehempo!"
+            }
+            WorkoutMode.SWIMMING -> {
+                coachingEngine.generateSwimmingFeedback(
+                    state.strokeCount,
+                    state.swimDistance,
+                    state.heartRate,
+                    state.poolLength
+                ) ?: "Bleib im Rhythmus!"
+            }
+            WorkoutMode.BODYWEIGHT -> {
+                coachingEngine.generateBodyweightFeedback(
+                    state.repCount,
+                    state.setCount,
+                    state.heartRate,
+                    state.exerciseName
+                ) ?: "Weiter so!"
+            }
+            WorkoutMode.CYCLING -> {
+                coachingEngine.generateCyclingFeedback(
+                    state.rpm,
+                    state.power,
+                    state.heartRate
+                ) ?: "Gutes Tempo halten!"
+            }
+            WorkoutMode.CARDIO_BOXING -> {
+                coachingEngine.generateCardioBoxingFeedback(
+                    state.punchCount,
+                    state.comboCount,
+                    state.heartRate,
+                    state.roundNumber
+                ) ?: "Keep punching!"
+            }
         }
+    }
+
+    fun setWorkoutMode(mode: WorkoutMode) {
+        _workoutState.value = _workoutState.value.copy(mode = mode)
+    }
+
+    fun incrementRepCount() {
+        _workoutState.value = _workoutState.value.copy(
+            repCount = _workoutState.value.repCount + 1
+        )
+    }
+
+    fun incrementSetCount() {
+        _workoutState.value = _workoutState.value.copy(
+            setCount = _workoutState.value.setCount + 1,
+            repCount = 0
+        )
+    }
+
+    fun incrementStrokeCount() {
+        _workoutState.value = _workoutState.value.copy(
+            strokeCount = _workoutState.value.strokeCount + 1
+        )
+    }
+
+    fun incrementPunchCount() {
+        _workoutState.value = _workoutState.value.copy(
+            punchCount = _workoutState.value.punchCount + 1
+        )
+    }
+
+    fun incrementCombo() {
+        _workoutState.value = _workoutState.value.copy(
+            comboCount = _workoutState.value.comboCount + 1
+        )
+    }
+
+    fun nextRound() {
+        _workoutState.value = _workoutState.value.copy(
+            roundNumber = _workoutState.value.roundNumber + 1,
+            punchCount = 0
+        )
+    }
+
+    fun setExerciseName(name: String) {
+        _workoutState.value = _workoutState.value.copy(exerciseName = name)
     }
 
     override fun onCleared() {
