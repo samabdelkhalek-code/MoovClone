@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+*.apk
+*.aab
+*.jks
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local files
+local.properties
+gradle.properties
+
+# Android
+captures/
+lint-results*.xml
+/src/main/assets/
