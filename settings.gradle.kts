@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "MoovClone"
 include(":app")
-project(":app").projectDir = file(".")
